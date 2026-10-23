@@ -33,11 +33,18 @@ export function getSystemPrompt(): string {
 }
 
 export function getPlanPrompt(brief: string, maxQuizzes: number): string {
-  return `Project brief: ${brief}. Break it into 3-6 small modules in build order. Set decision=true only for modules with a REAL design choice (architecture, data structure, algorithm), at most ${maxQuizzes} in total, each with a short concept name. Format and example:\n${PLAN_EXAMPLE}`;
+  const decisionRule = maxQuizzes > 0
+    ? ` The FIRST module must contain a meaningful, project-specific decision checkpoint, even when the user's brief is short or does not explicitly request questions. Mark it decision="true" and give it a concise concept. Choose a consequential decision suited to this project (such as data structure, persistence, architecture, API shape, layout, or interaction behavior), not an invented or generic question. Mark later modules decision=true only when they introduce another meaningful choice. Ask at most ${maxQuizzes} questions total.`
+    : ' Do not ask quiz questions in sprint mode.';
+  return `Project brief: ${brief}. Break it into 3-6 small modules in build order.${decisionRule} Mark other modules decision="false" and leave concept empty. Format and example:\n${PLAN_EXAMPLE}`;
 }
 
 export function getAskPrompt(title: string, goal: string): string {
-  return `Module: ${title} - ${goal}. Write ONE question with exactly 3 plausible options, exactly one best, and a 2-3 line why. Explain the problem in one sentence in <say>. No code. Format and example:\n${ASK_EXAMPLE}`;
+  return `Module: ${title} - ${goal}. Use the project brief and module context to identify a real decision that will shape this project. Ask ONE specific question with exactly 3 plausible, meaningfully different options and one recommended fit. In <why>, explain the tradeoffs in plain language, when each option is useful, and why the recommendation fits this project's stated needs. Treat this as a design choice: the user's choice is not morally or universally wrong; adapt the implementation to it when practical. If an option has a concrete downside, explain it without shaming. Explain what decision is being made in one sentence in <say>. No code. Format and example:\n${ASK_EXAMPLE}`;
+}
+
+export function getLearningCheckPrompt(title: string, goal: string): string {
+  return `The module "${title}" has just been implemented for this goal: ${goal}. Use the actual files and code in the supplied context. Ask ONE short comprehension question that checks an important idea the user can now see in that code (for example, how data flows, why a structure is used, or what a function protects). Give exactly 3 plausible options with exactly one technically correct answer. In <why>, explain the concept and point to the relevant file/function or code behavior from context. In <say>, briefly invite the user to try before revealing the explanation. This is a learning check, not a design decision. No code changes.`;
 }
 
 export function getBuildPrompt(
@@ -45,7 +52,7 @@ export function getBuildPrompt(
   goal: string,
   decision: string
 ): string {
-  return `Module: ${title} - ${goal}. User's decision: ${decision || 'none'}. Write the code for THIS module only. Use only folder, file, edit, insert, say, memory; paths relative to the workspace root; an edit's find text must match exactly once. In <say> explain what it does, why, and how it connects. Format and example:\n${BUILD_EXAMPLE}`;
+  return `Module: ${title} - ${goal}. User's decision: ${decision || 'none'}. Implement THIS module only; do not generate later modules or duplicate existing code. Use only folder, file, edit, insert, say, memory; paths relative to the workspace root; an edit's find text must match exactly once. Teach as you build: in <say>, explain (1) what changed and where, (2) the key concept or data flow in plain language, (3) why this approach fits the user's decision and one relevant tradeoff, and (4) one concrete thing the user can inspect or try now. Keep this explanation proportional to the mode and never claim checks were run unless they were. Add helpful file intro text that explains the file's responsibility. Format and example:\n${BUILD_EXAMPLE}`;
 }
 
 export function getChatPrompt(message: string): string {

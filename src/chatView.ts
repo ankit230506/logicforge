@@ -10,6 +10,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly cancelRequest: () => void
   ) {}
 
+  focusInput(): void {
+    this.view?.show(false);
+    void this.view?.webview.postMessage({ type: 'focus' });
+  }
+
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
     view.webview.options = { enableScripts: true };
@@ -162,6 +167,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const message = event.data;
       if (message.type === 'busy') setBusy(Boolean(message.value));
       else if (message.type === 'reply') addMessage('assistant', message.text || '');
+      else if (message.type === 'focus') input.focus();
     });
   </script>
 </body>

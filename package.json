@@ -2,7 +2,7 @@
   "name": "logicforge",
   "displayName": "LogicForge",
   "description": "AI writes the code. You own the logic.",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "publisher": "local",
   "license": "MIT",
   "engines": {
@@ -33,7 +33,8 @@
       { "command": "logicforge.resetSession", "title": "Reset Session", "category": "LogicForge" },
       { "command": "logicforge.cancel", "title": "Cancel", "category": "LogicForge" },
       { "command": "logicforge.ping", "title": "Ping", "category": "LogicForge" },
-      { "command": "logicforge.toggleDemoMode", "title": "Toggle Demo Mode", "category": "LogicForge" }
+      { "command": "logicforge.toggleDemoMode", "title": "Toggle Demo Mode", "category": "LogicForge" },
+      { "command": "logicforge.openChatForThread", "title": "Continue in LogicForge Chat", "category": "LogicForge" }
     ],
     "configuration": {
       "title": "LogicForge",
@@ -90,6 +91,12 @@
       }
     ],
     "menus": {
+      "comments/commentThread/title": [
+        {
+          "command": "logicforge.openChatForThread",
+          "group": "navigation"
+        }
+      ],
       "comments/commentThread/context": [
         {
           "command": "logicforge.reply",

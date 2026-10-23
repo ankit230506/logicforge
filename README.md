@@ -30,6 +30,10 @@ Use the Command Palette for Next Module, Checkpoint, Open History, Set API Key, 
 
 Use the **Chat** view in the LogicForge activity bar for an AI-style composer. Enter sends, Shift+Enter adds a line, and Up/Down browse previous prompts. While a request is running, the send button becomes a stop button. Open a file in the workspace before sending; messages also stay in the corresponding LogicForge comment thread.
 
+From an inline comment thread, use **Continue in LogicForge Chat** to open the same thread in the custom Chat composer. VS Code controls the native inline reply editor's appearance and keyboard behavior; the extension cannot restyle that built-in editor.
+
+In Balanced and Learn modes, each new plan automatically starts with one project-specific decision question before implementation. LogicForge presents three options, explains when each fits, and uses your choice to shape the first module. Design choices are treated as tradeoffs, not right-or-wrong preferences. During every build, LogicForge explains what changed, the key idea and data flow, why the approach fits, and one thing to inspect or try. Learn mode also asks a short question about the code after each successful module; its explanation follows your answer before you choose **Next Module**. Sprint mode skips questions and keeps explanations brief.
+
 ## Troubleshooting
 
 - **Please open a workspace folder first.** Open a folder in VS Code; LogicForge stores state under `.logicforge/` in that workspace.

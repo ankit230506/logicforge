@@ -11,7 +11,7 @@ import { readConfig, LogicForgeConfig } from './config';
 import { computeBudget, BudgetConfig } from './budget';
 import { normalizeConcept, isConceptKnown, evaluateQuiz, parseQuizAnswer } from './quiz';
 import { assembleContext, getAnchorContext, ContextParts } from './context';
-import { getSystemPrompt, getPlanPrompt, getAskPrompt, getBuildPrompt, getChatPrompt } from './prompts';
+import { getSystemPrompt, getPlanPrompt, getAskPrompt, getLearningCheckPrompt, getBuildPrompt, getChatPrompt } from './prompts';
 import { normalizeSeparators } from './sandbox';
 import { StatusBar } from './status';
 import { LogicForgeTreeProvider } from './tree';
@@ -106,9 +106,13 @@ export class Orchestrator {
     }
 
     // Route the message
+    const hasPlan = Boolean(this.stateManager.getState().plan);
+    const naturalBuildRequest = /^(?:please\s+)?(?:(?:(?:help|assist)\s+me\s+to|(?:can|could|would)\s+you|i(?:'d| would| want) to)\s+)?(?:build|create|make|develop|implement|design|start)\b/i.test(text.trim());
     if (text.startsWith('/plan ')) {
       const brief = text.substring(6).trim();
       await this.runPlan(reply.thread, brief);
+    } else if (!hasPlan && naturalBuildRequest) {
+      await this.runPlan(reply.thread, text.trim());
     } else if (text.trim() === '/next') {
       await this.runNext(reply.thread);
     } else {
@@ -122,6 +126,7 @@ export class Orchestrator {
   async runPlan(thread: vscode.CommentThread, brief: string): Promise<void> {
     const config = this.getConfig();
     const budget = this.getBudget();
+    let openingDecisionModule: ModuleState | undefined;
 
     await this.withBusy(thread, async (signal) => {
       const context = await this.buildContext(thread);
@@ -145,6 +150,17 @@ export class Orchestrator {
         concept: m.attrs.concept || '',
         status: 'todo' as const,
       }));
+
+      // Guarantee one useful learner checkpoint before the first module is built.
+      if (budget.maxQuizzes > 0 && modules.length > 0) {
+        const firstModule = modules[0];
+        firstModule.decision = 'true';
+        firstModule.concept = firstModule.concept.trim() || 'core project design';
+        if (!firstModule.goal.toLowerCase().includes('decision checkpoint')) {
+          firstModule.goal += ' First clarify the main project-specific design decision before implementation.';
+        }
+        openingDecisionModule = firstModule;
+      }
 
       // Update state
       this.stateManager.updateState({
@@ -181,6 +197,11 @@ export class Orchestrator {
 
       this.treeProvider.refresh();
     });
+
+    // Ask proactively as soon as the plan is visible, before any code is built.
+    if (openingDecisionModule) {
+      await this.runAsk(thread, openingDecisionModule);
+    }
   }
 
   /**
@@ -225,7 +246,7 @@ export class Orchestrator {
   /**
    * Run ASK state.
    */
-  private async runAsk(thread: vscode.CommentThread, module: ModuleState): Promise<void> {
+  private async runAsk(thread: vscode.CommentThread, module: ModuleState, kind: 'decision' | 'learning-check' = 'decision'): Promise<void> {
     const config = this.getConfig();
     const budget = this.getBudget();
     const state = this.stateManager.getState();
@@ -234,7 +255,9 @@ export class Orchestrator {
       const context = await this.buildContext(thread);
       const messages: LlmMessage[] = [
         { role: 'system', content: getSystemPrompt() },
-        { role: 'user', content: context + '\n\n' + getAskPrompt(module.title, module.goal) },
+        { role: 'user', content: context + '\n\n' + (kind === 'learning-check'
+          ? getLearningCheckPrompt(module.title, module.goal)
+          : getAskPrompt(module.title, module.goal)) },
       ];
 
       const result = await this.llmCall(messages, signal, 'ASK');
@@ -273,7 +296,8 @@ export class Orchestrator {
       const pendingRecord = {
         quizId,
         moduleId: module.id,
-        concept: module.concept,
+        concept: module.concept || module.title,
+        kind,
         question: q.body.trim(),
         options: opts.map(o => ({ id: o.attrs.id.toUpperCase(), text: o.body.trim() })),
         correctId: correct.body.trim().toUpperCase(),
@@ -282,7 +306,9 @@ export class Orchestrator {
       await this.workspaceContext.workspaceState.update(`quiz:${quizId}`, pendingRecord);
 
       // Increment quizzes asked
-      this.stateManager.updateState({ quizzesAsked: state.quizzesAsked + 1 });
+      if (kind === 'decision') {
+        this.stateManager.updateState({ quizzesAsked: state.quizzesAsked + 1 });
+      }
 
       // Demo mode indicator
       if (config.demoMode && this.firstMessage) {
@@ -311,6 +337,7 @@ export class Orchestrator {
       quizId: string;
       moduleId: string;
       concept: string;
+      kind?: 'decision' | 'learning-check';
       question: string;
       options: { id: string; text: string }[];
       correctId: string;
@@ -330,6 +357,27 @@ export class Orchestrator {
     const state = this.stateManager.getState();
     const module = state.plan?.modules.find(m => m.id === pendingRecord.moduleId);
 
+    if (pendingRecord.kind === 'learning-check') {
+      if (answer.type === 'iknow') {
+        this.threadManager.addComment(thread, new LFComment(
+          `Good. The key idea is: ${pendingRecord.why}`,
+          'agent',
+          config.agentName
+        ));
+      } else {
+        const { feedback } = evaluateQuiz(
+          answer.choice,
+          pendingRecord.correctId,
+          pendingRecord.options,
+          pendingRecord.why
+        );
+        this.threadManager.addComment(thread, new LFComment(feedback, 'agent', config.agentName));
+      }
+      await this.workspaceContext.workspaceState.update(`quiz:${quizId}`, undefined);
+      this.treeProvider.refresh();
+      return;
+    }
+
     if (answer.type === 'iknow') {
       // Add concept to known
       const knownConcepts = [...state.knownConcepts, normalizeConcept(pendingRecord.concept)];
@@ -345,14 +393,14 @@ export class Orchestrator {
       }
     } else {
       // Evaluate the answer
-      const { isCorrect, feedback } = evaluateQuiz(
-        answer.choice,
-        pendingRecord.correctId,
-        pendingRecord.options,
-        pendingRecord.why
-      );
+      const chosenOpt = pendingRecord.options.find(o => o.id === answer.choice.toUpperCase());
+      const recommendedOpt = pendingRecord.options.find(o => o.id === pendingRecord.correctId);
+      const feedback = chosenOpt
+        ? `You chose **${chosenOpt.text}**. ${pendingRecord.why} We’ll use your choice for this module.`
+        : `The recommended option was **${recommendedOpt?.text || pendingRecord.correctId}**. ${pendingRecord.why}`;
 
-      // Post feedback
+      // Design choices belong to the user; explain the recommendation without
+      // turning a preference into a right-or-wrong quiz answer.
       const feedbackComment = new LFComment(feedback, 'agent', config.agentName);
       this.threadManager.addComment(thread, feedbackComment);
 
@@ -373,8 +421,7 @@ export class Orchestrator {
 
       // Proceed to BUILD
       if (module) {
-        const correctOpt = pendingRecord.options.find(o => o.id === pendingRecord.correctId);
-        const decision = `${pendingRecord.concept}: ${correctOpt?.text || pendingRecord.correctId}`;
+        const decision = `${pendingRecord.concept}: ${chosenOpt?.text || recommendedOpt?.text || pendingRecord.correctId}`;
         await this.runBuild(thread, module, decision);
       }
     }
@@ -415,6 +462,7 @@ export class Orchestrator {
   async runBuild(thread: vscode.CommentThread, module: ModuleState, decision: string): Promise<void> {
     const config = this.getConfig();
     const budget = this.getBudget();
+    let builtSuccessfully = false;
 
     await this.withBusy(thread, async (signal) => {
       const context = await this.buildContext(thread);
@@ -430,6 +478,7 @@ export class Orchestrator {
 
       // Execute actions
       const execResult = await executeActions(tags, this.wsRoot, this.stateManager, thread);
+      builtSuccessfully = execResult.success;
 
       // Post say text
       const sayTag = findTag(tags, 'say');
@@ -480,6 +529,12 @@ export class Orchestrator {
 
       this.treeProvider.refresh();
     });
+
+    // Learn mode closes each successfully built module with one code-grounded
+    // comprehension check. It does not consume the design-decision question budget.
+    if (builtSuccessfully && config.mode === 'learn') {
+      await this.runAsk(thread, module, 'learning-check');
+    }
   }
 
   /**

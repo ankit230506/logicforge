@@ -155,6 +155,14 @@ async function doActivate(context: vscode.ExtensionContext): Promise<TestApi | u
     chatViewProvider,
     { webviewOptions: { retainContextWhenHidden: true } }
   ));
+  safe('Continue in LogicForge Chat', () =>
+    vscode.commands.registerCommand('logicforge.openChatForThread', async (arg: vscode.CommentThread | vscode.CommentReply) => {
+      const thread = 'thread' in arg ? arg.thread : arg;
+      chatThread = thread;
+      chatThreadUri = thread.uri.toString();
+      await vscode.commands.executeCommand('workbench.view.extension.logicforge-sidebar');
+      chatViewProvider.focusInput();
+    }), context);
 
   // Register tree view
   safe('Tree View', () => {
