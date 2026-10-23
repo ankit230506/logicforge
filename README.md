@@ -28,6 +28,8 @@
 
 Use the Command Palette for Next Module, Checkpoint, Open History, Set API Key, Set Mode, Set Time Budget, New Project, Reset Session, Cancel, Ping, and Toggle Demo Mode. Replies can start with `/plan <brief>` or `/next`.
 
+Use the **Chat** view in the LogicForge activity bar for an AI-style composer. Enter sends, Shift+Enter adds a line, and Up/Down browse previous prompts. While a request is running, the send button becomes a stop button. Open a file in the workspace before sending; messages also stay in the corresponding LogicForge comment thread.
+
 ## Troubleshooting
 
 - **Please open a workspace folder first.** Open a folder in VS Code; LogicForge stores state under `.logicforge/` in that workspace.

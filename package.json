@@ -2,7 +2,7 @@
   "name": "logicforge",
   "displayName": "LogicForge",
   "description": "AI writes the code. You own the logic.",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "publisher": "local",
   "license": "MIT",
   "engines": {
@@ -138,6 +138,11 @@
     },
     "views": {
       "logicforge-sidebar": [
+        {
+          "id": "logicforge.chatView",
+          "name": "Chat",
+          "type": "webview"
+        },
         {
           "id": "logicforge.sideView",
           "name": "LogicForge",

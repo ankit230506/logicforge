@@ -11,6 +11,7 @@ import { StatusBar } from './status';
 import { LogicForgeTreeProvider } from './tree';
 import { runCheckpoint } from './checkpoint';
 import { normalizeSeparators } from './sandbox';
+import { ChatViewProvider } from './chatView';
 
 interface TestApi {
   createThread(uri: vscode.Uri, line: number): vscode.CommentThread;
@@ -127,6 +128,33 @@ async function doActivate(context: vscode.ExtensionContext): Promise<TestApi | u
     );
     return true;
   }
+
+  let chatThread: vscode.CommentThread | undefined;
+  let chatThreadUri = '';
+  const chatViewProvider = new ChatViewProvider(async (text) => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) throw new Error('Open a file in your workspace before chatting with LogicForge.');
+    if (!await ensureLlmClient()) throw new Error('Set an API key before sending a message.');
+
+    const uri = editor.document.uri.toString();
+    if (!chatThread || chatThreadUri !== uri) {
+      chatThread = threadManager.createThread(editor.document.uri, editor.selection.active.line);
+      chatThreadUri = uri;
+    }
+    const thread = chatThread;
+    const previousCount = thread.comments.length;
+    await orchestrator.handleReply({ text, thread });
+    const newAgentMessages = (thread.comments as LFComment[])
+      .slice(previousCount)
+      .filter(comment => comment.role === 'agent' && comment.getText() !== 'Thinking...')
+      .map(comment => comment.getText());
+    return newAgentMessages.join('\n\n');
+  }, () => orchestrator.cancel());
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider(
+    'logicforge.chatView',
+    chatViewProvider,
+    { webviewOptions: { retainContextWhenHidden: true } }
+  ));
 
   // Register tree view
   safe('Tree View', () => {
