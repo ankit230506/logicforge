@@ -1,0 +1,14 @@
+.vscode/**
+src/**
+test/**
+out/**
+node_modules/**
+.vscode-test/**
+test/integration/workspace/**
+scripts/**
+.gitignore
+tsconfig.json
+esbuild.js
+*.map
+dist/**/*.map
+.logicforge/**

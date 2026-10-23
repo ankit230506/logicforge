@@ -1,0 +1,166 @@
+{
+  "name": "logicforge",
+  "displayName": "LogicForge",
+  "description": "AI writes the code. You own the logic.",
+  "version": "0.1.2",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "contributes": {
+    "commands": [
+      { "command": "logicforge.askHere", "title": "Ask Here", "category": "LogicForge" },
+      { "command": "logicforge.reply", "title": "Reply", "category": "LogicForge" },
+      { "command": "logicforge.answerA", "title": "A", "category": "LogicForge" },
+      { "command": "logicforge.answerB", "title": "B", "category": "LogicForge" },
+      { "command": "logicforge.answerC", "title": "C", "category": "LogicForge" },
+      { "command": "logicforge.iKnowThis", "title": "I Know This", "category": "LogicForge" },
+      { "command": "logicforge.nextModule", "title": "Next Module", "category": "LogicForge" },
+      { "command": "logicforge.checkpoint", "title": "Checkpoint", "category": "LogicForge" },
+      { "command": "logicforge.openHistory", "title": "Open History", "category": "LogicForge" },
+      { "command": "logicforge.setApiKey", "title": "Set API Key", "category": "LogicForge" },
+      { "command": "logicforge.setMode", "title": "Set Mode", "category": "LogicForge" },
+      { "command": "logicforge.setTimeBudget", "title": "Set Time Budget", "category": "LogicForge" },
+      { "command": "logicforge.newProject", "title": "New Project", "category": "LogicForge" },
+      { "command": "logicforge.resetSession", "title": "Reset Session", "category": "LogicForge" },
+      { "command": "logicforge.cancel", "title": "Cancel", "category": "LogicForge" },
+      { "command": "logicforge.ping", "title": "Ping", "category": "LogicForge" },
+      { "command": "logicforge.toggleDemoMode", "title": "Toggle Demo Mode", "category": "LogicForge" }
+    ],
+    "configuration": {
+      "title": "LogicForge",
+      "properties": {
+        "logicforge.model": {
+          "type": "string",
+          "default": "gemini-3.6-flash",
+          "description": "Gemini model name to use for responses."
+        },
+        "logicforge.maxTokens": {
+          "type": "number",
+          "default": 4096,
+          "description": "Maximum tokens for LLM responses."
+        },
+        "logicforge.mode": {
+          "type": "string",
+          "default": "balanced",
+          "enum": ["sprint", "balanced", "learn"],
+          "description": "Teaching mode: sprint (no quizzes), balanced, or learn (more detail)."
+        },
+        "logicforge.agentName": {
+          "type": "string",
+          "default": "LogicForge",
+          "description": "Display name for the agent."
+        },
+        "logicforge.timeBudgetHours": {
+          "type": "number",
+          "default": 0,
+          "description": "Time budget in hours (0 = no limit)."
+        },
+        "logicforge.contextMaxChars": {
+          "type": "number",
+          "default": 12000,
+          "description": "Maximum characters for context sent to the LLM."
+        },
+        "logicforge.checkpoint.keepWhyComments": {
+          "type": "boolean",
+          "default": true,
+          "description": "Insert 'why:' comments above code lines during checkpoint."
+        },
+        "logicforge.demoMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable demo mode with scripted responses (no API key needed)."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "logicforge.askHere",
+        "key": "ctrl+alt+l",
+        "mac": "cmd+alt+l",
+        "when": "editorTextFocus"
+      }
+    ],
+    "menus": {
+      "comments/commentThread/context": [
+        {
+          "command": "logicforge.reply",
+          "group": "inline",
+          "when": "commentController == logicforge"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "logicforge.answerA",
+          "group": "inline",
+          "when": "comment == quiz-pending"
+        },
+        {
+          "command": "logicforge.answerB",
+          "group": "inline",
+          "when": "comment == quiz-pending"
+        },
+        {
+          "command": "logicforge.answerC",
+          "group": "inline",
+          "when": "comment == quiz-pending"
+        },
+        {
+          "command": "logicforge.iKnowThis",
+          "group": "inline",
+          "when": "comment == quiz-pending"
+        }
+      ],
+      "commandPalette": [
+        { "command": "logicforge.reply", "when": "false" },
+        { "command": "logicforge.answerA", "when": "false" },
+        { "command": "logicforge.answerB", "when": "false" },
+        { "command": "logicforge.answerC", "when": "false" },
+        { "command": "logicforge.iKnowThis", "when": "false" }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "logicforge-sidebar",
+          "title": "LogicForge",
+          "icon": "$(symbol-misc)"
+        }
+      ]
+    },
+    "views": {
+      "logicforge-sidebar": [
+        {
+          "id": "logicforge.sideView",
+          "name": "LogicForge",
+          "type": "tree"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node esbuild.js",
+    "test": "node scripts/run-tests.js",
+    "check-manifest": "node scripts/check-manifest.js",
+    "verify": "npm run typecheck && npm run build && npm run test && npm run check-manifest",
+    "package": "vsce package --allow-missing-repository --no-dependencies",
+    "test:integration": "node test/integration/run.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "esbuild": "^0.19.0",
+    "@types/vscode": "~1.85.0",
+    "@types/node": "^18.0.0",
+    "@vscode/vsce": "^2.22.0",
+    "@vscode/test-electron": "^2.3.0"
+  }
+}
